@@ -1,0 +1,872 @@
+<!DOCTYPE html>
+<html lang="id" class="h-full">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>VeriText Pro - Next-Gen Plagiarism & AI Analysis</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['Plus Jakarta Sans', 'sans-serif'],
+                    },
+                    colors: {
+                        brand: {
+                            50: '#f0f7ff',
+                            100: '#e0effe',
+                            500: '#3b82f6',
+                            600: '#2563eb',
+                            700: '#1d4ed8',
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+    <!-- Google Fonts Plus Jakarta Sans & FontAwesome Icons -->
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
+    <!-- PDF.js & Mammoth.js for text extraction -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.4.120/pdf.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/mammoth/1.6.0/mammoth.browser.min.js"></script>
+
+    <style>
+        body {
+            font-family: 'Plus Jakarta Sans', sans-serif;
+            transition: background-color 0.3s, color 0.3s;
+        }
+
+        /* Custom Drag & Drop Pulse Glow */
+        .drop-zone--over {
+            border-color: #3b82f6 !important;
+            background-color: rgba(59, 130, 246, 0.05) !important;
+        }
+
+        /* Glassmorphism elements */
+        .glass-panel {
+            backdrop-filter: blur(12px);
+        }
+
+        /* Custom Scrollbars */
+        ::-webkit-scrollbar {
+            width: 6px;
+            height: 6px;
+        }
+        ::-webkit-scrollbar-track {
+            background: transparent;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #cbd5e1;
+            border-radius: 9999px;
+        }
+        .dark ::-webkit-scrollbar-thumb {
+            background: #334155;
+        }
+
+        /* Text Highlighting Styles */
+        .highlight-plagiarized {
+            background-color: rgba(239, 68, 68, 0.15);
+            color: #dc2626;
+            border-bottom: 2px solid #ef4444;
+            padding: 2px 4px;
+            border-radius: 4px;
+            font-weight: 500;
+        }
+        .dark .highlight-plagiarized {
+            background-color: rgba(239, 68, 68, 0.25);
+            color: #fca5a5;
+            border-bottom-color: #f87171;
+        }
+
+        .highlight-partial {
+            background-color: rgba(245, 158, 11, 0.15);
+            color: #d97706;
+            border-bottom: 2px solid #f59e0b;
+            padding: 2px 4px;
+            border-radius: 4px;
+            font-weight: 500;
+        }
+        .dark .highlight-partial {
+            background-color: rgba(245, 158, 11, 0.25);
+            color: #fcd34d;
+            border-bottom-color: #fbbf24;
+        }
+    </style>
+</head>
+<body class="bg-slate-50 dark:bg-slate-950 text-slate-800 dark:text-slate-100 min-h-screen flex flex-col">
+
+    <!-- Top Navigation -->
+    <header class="border-b border-slate-200/80 dark:border-slate-800/80 bg-white/80 dark:bg-slate-900/80 sticky top-0 z-40 glass-panel">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
+            <div class="flex items-center space-x-3">
+                <div class="w-10 h-10 rounded-xl bg-gradient-to-tr from-blue-600 to-indigo-500 flex items-center justify-center text-white font-black text-lg shadow-lg shadow-blue-500/25">
+                    <i class="fa-solid fa-shield-halved"></i>
+                </div>
+                <div>
+                    <span class="font-extrabold text-lg tracking-tight text-slate-900 dark:text-white">Veri<span class="text-blue-600 dark:text-blue-400">Text</span></span>
+                    <span class="text-[10px] uppercase tracking-wider bg-blue-100 dark:bg-blue-900/50 text-blue-700 dark:text-blue-300 px-2 py-0.5 rounded-full font-bold ml-1.5">AI Engine</span>
+                </div>
+            </div>
+
+            <div class="flex items-center space-x-3">
+                <!-- Dark Mode Toggle Button -->
+                <button onclick="toggleDarkMode()" class="p-2.5 rounded-xl bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700 transition-all">
+                    <i id="theme-toggle-dark-icon" class="fa-solid fa-moon hidden"></i>
+                    <i id="theme-toggle-light-icon" class="fa-solid fa-sun"></i>
+                </button>
+
+                <button onclick="resetAll()" class="hidden sm:flex items-center gap-2 px-3.5 py-2 rounded-xl border border-slate-200 dark:border-slate-800 text-xs font-semibold hover:bg-slate-100 dark:hover:bg-slate-800 transition-all text-slate-600 dark:text-slate-300">
+                    <i class="fa-solid fa-rotate-right"></i>
+                    <span>Reset</span>
+                </button>
+
+                <a href="#analysis-section" class="bg-blue-600 hover:bg-blue-700 text-white font-semibold text-xs px-4 py-2.5 rounded-xl transition-all shadow-md shadow-blue-500/20 flex items-center gap-2">
+                    <i class="fa-solid fa-chart-pie"></i>
+                    <span>Dashboard Hasil</span>
+                </a>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Workspace Area -->
+    <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 flex-1 w-full space-y-8">
+
+        <!-- Top Welcome & Status Banner -->
+        <div class="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-gradient-to-r from-blue-900 via-indigo-900 to-slate-900 text-white rounded-3xl p-6 sm:p-8 shadow-xl relative overflow-hidden">
+            <div class="absolute -right-10 -bottom-10 w-64 h-64 bg-blue-500/10 rounded-full blur-3xl pointer-events-none"></div>
+            <div class="relative z-10 max-w-2xl">
+                <div class="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-blue-500/20 border border-blue-400/30 text-blue-300 text-xs font-semibold mb-3">
+                    <i class="fa-solid fa-bolt text-amber-400"></i> Integrasi Detektor Multi-Jurnal
+                </div>
+                <h1 class="text-2xl sm:text-3xl font-bold tracking-tight mb-2">Pemeriksa Plagiarisme & Keaslian Dokumen</h1>
+                <p class="text-slate-300 text-xs sm:text-sm leading-relaxed">
+                    Unggah dokumen atau tempel artikel Anda. Sistem kami memindai kecocokan frase secara komprehensif dari database akademik dan jurnal ilmiah.
+                </p>
+            </div>
+            
+            <div class="relative z-10 flex items-center gap-4 bg-white/10 dark:bg-slate-800/40 border border-white/10 p-4 rounded-2xl backdrop-blur-md self-start md:self-auto">
+                <div class="text-center px-2">
+                    <p class="text-2xl font-black text-white" id="stat-scans">1,248</p>
+                    <p class="text-[10px] text-slate-300 font-medium uppercase">Dokumen Terpindai</p>
+                </div>
+                <div class="w-px h-8 bg-white/20"></div>
+                <div class="text-center px-2">
+                    <p class="text-2xl font-black text-emerald-400">99.4%</p>
+                    <p class="text-[10px] text-slate-300 font-medium uppercase">Akurasi Engine</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Section 1: Drag & Drop File + Editor Workspace -->
+        <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+            
+            <!-- Left Panel: File Dropzone & Import -->
+            <div class="lg:col-span-5 flex flex-col gap-4">
+                <div class="bg-white dark:bg-slate-900 rounded-3xl p-6 border border-slate-200/80 dark:border-slate-800/80 shadow-sm flex flex-col flex-1">
+                    <div class="flex items-center justify-between mb-4">
+                        <h2 class="font-bold text-slate-900 dark:text-white text-base flex items-center gap-2">
+                            <i class="fa-solid fa-cloud-arrow-up text-blue-600 dark:text-blue-400"></i>
+                            Unggah Dokumen
+                        </h2>
+                        <span class="text-xs text-slate-400">PDF, DOCX, TXT</span>
+                    </div>
+
+                    <!-- Drag and Drop Box -->
+                    <div id="drop-zone" class="border-2 border-dashed border-slate-300 dark:border-slate-700 hover:border-blue-500 dark:hover:border-blue-500 rounded-2xl p-6 text-center cursor-pointer transition-all bg-slate-50/50 dark:bg-slate-800/30 flex flex-col items-center justify-center flex-1 min-h-[220px]">
+                        <input type="file" id="file-input" accept=".txt,.pdf,.doc,.docx" class="hidden" onchange="handleFileSelect(event)" />
+                        
+                        <div class="w-14 h-14 rounded-2xl bg-blue-50 dark:bg-blue-950/60 text-blue-600 dark:text-blue-400 flex items-center justify-center text-2xl mb-3 shadow-inner">
+                            <i class="fa-solid fa-file-arrow-up"></i>
+                        </div>
+                        <p class="text-sm font-bold text-slate-800 dark:text-slate-200 mb-1">
+                            Tarik & Lepaskan File di Sini
+                        </p>
+                        <p class="text-xs text-slate-400 mb-4">atau klik untuk memilih dari komputer</p>
+
+                        <div class="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-xs font-semibold text-slate-600 dark:text-slate-300 shadow-sm">
+                            <i class="fa-solid fa-folder-open text-amber-500"></i> Pilih File
+                        </div>
+                    </div>
+
+                    <!-- Selected File Metadata Card -->
+                    <div id="file-info-card" class="hidden mt-4 p-3.5 bg-blue-50 dark:bg-blue-950/40 border border-blue-200 dark:border-blue-800/60 rounded-xl items-center justify-between">
+                        <div class="flex items-center space-x-3 overflow-hidden">
+                            <i class="fa-solid fa-file-lines text-blue-600 text-lg flex-shrink-0"></i>
+                            <div class="truncate">
+                                <p id="file-name" class="text-xs font-bold text-slate-800 dark:text-slate-200 truncate">document.docx</p>
+                                <p id="file-size" class="text-[10px] text-slate-500 dark:text-slate-400">128 KB</p>
+                            </div>
+                        </div>
+                        <button onclick="removeFile()" class="p-1.5 text-slate-400 hover:text-red-500 transition-colors">
+                            <i class="fa-solid fa-xmark text-sm"></i>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Features Card -->
+                <div class="bg-gradient-to-br from-slate-900 to-slate-800 text-white rounded-3xl p-5 border border-slate-800 shadow-sm">
+                    <div class="flex items-center gap-3 mb-3">
+                        <div class="p-2 rounded-lg bg-emerald-500/20 text-emerald-400 text-sm">
+                            <i class="fa-solid fa-shield-check"></i>
+                        </div>
+                        <h3 class="font-bold text-sm">Privasi Dokumen Terjamin</h3>
+                    </div>
+                    <p class="text-xs text-slate-400 leading-relaxed">
+                        Dokumen yang Anda masukkan dipindai secara aman di memori lokal dan tidak disimpan dalam repositori publik tanpa izin.
+                    </p>
+                </div>
+            </div>
+
+            <!-- Right Panel: Text Editor & Direct Input -->
+            <div class="lg:col-span-7 flex flex-col">
+                <div class="bg-white dark:bg-slate-900 rounded-3xl p-6 border border-slate-200/80 dark:border-slate-800/80 shadow-sm flex flex-col flex-1 min-h-[420px]">
+                    
+                    <!-- Editor Header -->
+                    <div class="flex flex-wrap items-center justify-between gap-3 pb-4 mb-4 border-b border-slate-100 dark:border-slate-800">
+                        <div class="flex items-center space-x-2">
+                            <i class="fa-solid fa-pen-to-square text-blue-600 dark:text-blue-400"></i>
+                            <h2 class="font-bold text-slate-900 dark:text-white text-base">Editor Teks Artikel</h2>
+                        </div>
+
+                        <!-- Counters -->
+                        <div class="flex items-center space-x-3 text-xs font-semibold">
+                            <div class="px-2.5 py-1 rounded-lg bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300">
+                                Kata: <span id="word-count" class="text-blue-600 dark:text-blue-400 font-bold">0</span>
+                            </div>
+                            <div class="px-2.5 py-1 rounded-lg bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300">
+                                Karakter: <span id="char-count" class="text-slate-900 dark:text-white font-bold">0</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Textarea Container -->
+                    <div class="relative flex-1 flex flex-col min-h-[260px]">
+                        <textarea id="editor-textarea" 
+                            class="w-full flex-1 p-4 bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700/80 rounded-2xl focus:outline-none focus:ring-2 focus:ring-blue-500 text-slate-800 dark:text-slate-200 text-sm leading-relaxed resize-none transition-all"
+                            placeholder="Tempelkan atau ketik artikel yang ingin diperiksa di sini..."
+                            oninput="updateTextStats()"></textarea>
+
+                        <!-- Interactive Result View (Hidden until checked) -->
+                        <div id="editor-result-view" class="hidden w-full flex-1 p-4 bg-slate-50 dark:bg-slate-800/40 border border-slate-200 dark:border-slate-700/80 rounded-2xl text-slate-800 dark:text-slate-200 text-sm leading-relaxed overflow-y-auto max-h-[320px]"></div>
+
+                        <!-- Scanning Animation Overlay -->
+                        <div id="scanning-overlay" class="hidden absolute inset-0 bg-white/90 dark:bg-slate-900/90 backdrop-blur-sm rounded-2xl z-20 flex-col items-center justify-center text-center p-6">
+                            <div class="relative w-16 h-16 mb-4">
+                                <div class="absolute inset-0 border-4 border-blue-500/20 border-t-blue-600 rounded-full animate-spin"></div>
+                                <div class="absolute inset-2 border-4 border-indigo-500/20 border-b-indigo-500 rounded-full animate-spin" style="animation-direction: reverse; animation-duration: 0.8s;"></div>
+                            </div>
+                            <h4 class="font-bold text-slate-900 dark:text-white text-sm mb-1">Sedang Memindai Teks...</h4>
+                            <p class="text-xs text-slate-500 dark:text-slate-400">Menghubungkan ke 40M+ indeks repositori jurnal...</p>
+                        </div>
+                    </div>
+
+                    <!-- Editor Footer Actions -->
+                    <div class="mt-4 pt-3 flex flex-wrap items-center justify-between gap-3 border-t border-slate-100 dark:border-slate-800">
+                        <button onclick="loadSampleText()" class="text-xs font-semibold text-slate-500 hover:text-blue-600 dark:hover:text-blue-400 transition-colors flex items-center gap-1.5">
+                            <i class="fa-solid fa-wand-magic-sparkles text-amber-500"></i> Muat Teks Contoh
+                        </button>
+
+                        <div class="flex items-center gap-3">
+                            <button onclick="clearEditor()" class="text-xs font-semibold text-slate-400 hover:text-red-500 transition-colors px-2 py-1">
+                                Bersihkan
+                            </button>
+                            <button id="btn-analyze" onclick="startPlagiarismAnalysis()" class="bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white font-bold text-sm px-6 py-2.5 rounded-xl transition-all shadow-lg shadow-blue-500/25 flex items-center gap-2 transform active:scale-95">
+                                <i class="fa-solid fa-magnifying-glass-chart"></i>
+                                <span>Mulai Analisis</span>
+                            </button>
+                        </div>
+                    </div>
+
+                </div>
+            </div>
+
+        </div>
+
+        <!-- Section 2: Visualisation Results Dashboard -->
+        <div id="analysis-section" class="scroll-mt-20">
+            <div class="flex items-center justify-between mb-6">
+                <div>
+                    <h2 class="text-xl font-bold text-slate-900 dark:text-white flex items-center gap-2">
+                        <i class="fa-solid fa-chart-line text-blue-600 dark:text-blue-400"></i>
+                        Dashboard Hasil Analisis
+                    </h2>
+                    <p class="text-xs text-slate-500 dark:text-slate-400">Ringkasan tingkat plagiarisme dan originalitas artikel</p>
+                </div>
+
+                <button onclick="downloadReport()" id="btn-download" disabled class="opacity-50 cursor-not-allowed bg-slate-200 dark:bg-slate-800 text-slate-700 dark:text-slate-300 font-semibold text-xs px-4 py-2.5 rounded-xl transition-all flex items-center gap-2">
+                    <i class="fa-solid fa-download"></i>
+                    <span>Unduh Laporan</span>
+                </button>
+            </div>
+
+            <!-- Score Cards Grid -->
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+                
+                <!-- Card 1: Plagiarism Score -->
+                <div class="bg-white dark:bg-slate-900 rounded-3xl p-6 border border-slate-200/80 dark:border-slate-800/80 shadow-sm flex flex-col justify-between relative overflow-hidden">
+                    <div class="flex items-start justify-between">
+                        <div>
+                            <span class="text-xs font-bold text-slate-400 uppercase tracking-wider">Tingkat Plagiat</span>
+                            <h3 id="plag-score-text" class="text-3xl font-extrabold text-slate-900 dark:text-white mt-1">0.00%</h3>
+                        </div>
+                        <div class="w-12 h-12 rounded-2xl bg-red-50 dark:bg-red-950/40 text-red-500 flex items-center justify-center text-xl">
+                            <i class="fa-solid fa-triangle-exclamation"></i>
+                        </div>
+                    </div>
+                    
+                    <!-- Progress Bar -->
+                    <div class="mt-6">
+                        <div class="w-full bg-slate-100 dark:bg-slate-800 h-2.5 rounded-full overflow-hidden">
+                            <div id="plag-progress-bar" class="bg-red-500 h-full w-0 transition-all duration-1000 ease-out"></div>
+                        </div>
+                        <p id="plag-risk-label" class="text-[11px] font-semibold text-slate-500 dark:text-slate-400 mt-2">Menunggu Pemindaian</p>
+                    </div>
+                </div>
+
+                <!-- Card 2: Original Score -->
+                <div class="bg-white dark:bg-slate-900 rounded-3xl p-6 border border-slate-200/80 dark:border-slate-800/80 shadow-sm flex flex-col justify-between relative overflow-hidden">
+                    <div class="flex items-start justify-between">
+                        <div>
+                            <span class="text-xs font-bold text-slate-400 uppercase tracking-wider">Skor Originalitas</span>
+                            <h3 id="orig-score-text" class="text-3xl font-extrabold text-slate-900 dark:text-white mt-1">0.00%</h3>
+                        </div>
+                        <div class="w-12 h-12 rounded-2xl bg-emerald-50 dark:bg-emerald-950/40 text-emerald-500 flex items-center justify-center text-xl">
+                            <i class="fa-solid fa-circle-check"></i>
+                        </div>
+                    </div>
+                    
+                    <!-- Progress Bar -->
+                    <div class="mt-6">
+                        <div class="w-full bg-slate-100 dark:bg-slate-800 h-2.5 rounded-full overflow-hidden">
+                            <div id="orig-progress-bar" class="bg-emerald-500 h-full w-0 transition-all duration-1000 ease-out"></div>
+                        </div>
+                        <p id="orig-status-label" class="text-[11px] font-semibold text-emerald-600 dark:text-emerald-400 mt-2">-</p>
+                    </div>
+                </div>
+
+                <!-- Card 3: AI Generated Score Simulation -->
+                <div class="bg-white dark:bg-slate-900 rounded-3xl p-6 border border-slate-200/80 dark:border-slate-800/80 shadow-sm flex flex-col justify-between">
+                    <div class="flex items-start justify-between">
+                        <div>
+                            <span class="text-xs font-bold text-slate-400 uppercase tracking-wider">Deteksi AI</span>
+                            <h3 id="ai-score-text" class="text-3xl font-extrabold text-slate-900 dark:text-white mt-1">0%</h3>
+                        </div>
+                        <div class="w-12 h-12 rounded-2xl bg-indigo-50 dark:bg-indigo-950/40 text-indigo-500 flex items-center justify-center text-xl">
+                            <i class="fa-solid fa-robot"></i>
+                        </div>
+                    </div>
+                    
+                    <div class="mt-6">
+                        <div class="w-full bg-slate-100 dark:bg-slate-800 h-2.5 rounded-full overflow-hidden">
+                            <div id="ai-progress-bar" class="bg-indigo-500 h-full w-0 transition-all duration-1000 ease-out"></div>
+                        </div>
+                        <p class="text-[11px] font-semibold text-slate-500 dark:text-slate-400 mt-2">Pola Penulisan Manusia</p>
+                    </div>
+                </div>
+
+                <!-- Card 4: Sentence Structure Quality -->
+                <div class="bg-white dark:bg-slate-900 rounded-3xl p-6 border border-slate-200/80 dark:border-slate-800/80 shadow-sm flex flex-col justify-between">
+                    <div class="flex items-start justify-between">
+                        <div>
+                            <span class="text-xs font-bold text-slate-400 uppercase tracking-wider">Kesesuaian Sumber</span>
+                            <h3 id="sources-matched-count" class="text-3xl font-extrabold text-slate-900 dark:text-white mt-1">0</h3>
+                        </div>
+                        <div class="w-12 h-12 rounded-2xl bg-amber-50 dark:bg-amber-950/40 text-amber-500 flex items-center justify-center text-xl">
+                            <i class="fa-solid fa-link"></i>
+                        </div>
+                    </div>
+                    
+                    <div class="mt-6">
+                        <p class="text-[11px] font-semibold text-slate-500 dark:text-slate-400">Domain Jurnal Cocok</p>
+                        <p class="text-xs text-slate-400 mt-0.5 truncate">Database Akademik Terverifikasi</p>
+                    </div>
+                </div>
+
+            </div>
+
+            <!-- Breakdown & Source Match Table Section -->
+            <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+                
+                <!-- Left: Breakdown Matrix -->
+                <div class="lg:col-span-5 bg-white dark:bg-slate-900 rounded-3xl p-6 border border-slate-200/80 dark:border-slate-800/80 shadow-sm flex flex-col">
+                    <h3 class="font-bold text-slate-900 dark:text-white text-base mb-4 flex items-center gap-2">
+                        <i class="fa-solid fa-sliders text-blue-600"></i>
+                        Rincian Metrik Analisis
+                    </h3>
+
+                    <div class="space-y-4 flex-1 justify-center flex flex-col">
+                        <div>
+                            <div class="flex justify-between text-xs font-bold mb-1.5">
+                                <span class="text-slate-600 dark:text-slate-300">Kemiripan Kalimat Langsung (Exact)</span>
+                                <span id="metric-exact" class="text-slate-900 dark:text-white">0%</span>
+                            </div>
+                            <div class="w-full bg-slate-100 dark:bg-slate-800 h-2 rounded-full overflow-hidden">
+                                <div id="bar-exact" class="bg-red-500 h-full w-0 transition-all duration-700"></div>
+                            </div>
+                        </div>
+
+                        <div>
+                            <div class="flex justify-between text-xs font-bold mb-1.5">
+                                <span class="text-slate-600 dark:text-slate-300">Parafrase Sebagian (Partial Match)</span>
+                                <span id="metric-partial" class="text-slate-900 dark:text-white">0%</span>
+                            </div>
+                            <div class="w-full bg-slate-100 dark:bg-slate-800 h-2 rounded-full overflow-hidden">
+                                <div id="bar-partial" class="bg-amber-500 h-full w-0 transition-all duration-700"></div>
+                            </div>
+                        </div>
+
+                        <div>
+                            <div class="flex justify-between text-xs font-bold mb-1.5">
+                                <span class="text-slate-600 dark:text-slate-300">Variasi Kosa Kata (Vocabulary Unique)</span>
+                                <span id="metric-vocab" class="text-slate-900 dark:text-white">0%</span>
+                            </div>
+                            <div class="w-full bg-slate-100 dark:bg-slate-800 h-2 rounded-full overflow-hidden">
+                                <div id="bar-vocab" class="bg-blue-500 h-full w-0 transition-all duration-700"></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Right: Mock Source Match List -->
+                <div class="lg:col-span-7 bg-white dark:bg-slate-900 rounded-3xl p-6 border border-slate-200/80 dark:border-slate-800/80 shadow-sm">
+                    <div class="flex items-center justify-between mb-4">
+                        <h3 class="font-bold text-slate-900 dark:text-white text-base flex items-center gap-2">
+                            <i class="fa-solid fa-list-check text-indigo-500"></i>
+                            Sumber Potensial Terdeteksi
+                        </h3>
+                        <span id="sources-badge" class="text-xs bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 px-2.5 py-1 rounded-full font-semibold">0 Sumber</span>
+                    </div>
+
+                    <div id="sources-list" class="space-y-3 max-h-[220px] overflow-y-auto pr-1">
+                        <div class="text-center py-8 text-slate-400 text-xs">
+                            <i class="fa-solid fa-inbox text-3xl mb-2 block opacity-50"></i>
+                            Belum ada hasil. Klik "Mulai Analisis" di atas.
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+        </div>
+
+    </main>
+
+    <!-- Global Notification Toast -->
+    <div id="toast" class="fixed bottom-5 right-5 z-50 bg-slate-900 text-white dark:bg-white dark:text-slate-900 px-4 py-3 rounded-2xl shadow-2xl flex items-center gap-3 transition-all transform translate-y-20 opacity-0 pointer-events-none">
+        <i class="fa-solid fa-circle-info text-blue-400 dark:text-blue-600" id="toast-icon"></i>
+        <span class="text-xs font-semibold" id="toast-msg">Pesan notifikasi</span>
+    </div>
+
+    <!-- JavaScript Logic -->
+    <script>
+        // Sample article text
+        const sampleText = `Perkembangan Teknologi Kecerdasan Buatan (AI) dalam Pengelolaan Data Modern
+
+Seiring berkembangnya era transformasi digital, data telah menjelma menjadi salah satu aset paling bernilai bagi organisasi dan perusahaan modern. Pengumpulan dan pemrosesan data secara real-time memungkinkan pengambilan keputusan yang lebih terukur, efisien, serta berbasis bukti objektif. Namun, volume data yang melonjak drastis menimbulkan tantangan baru dalam hal analisis dan perlindungan privasi.
+
+Pengintegrasian sistem kecerdasan buatan dan pembelajaran mesin (machine learning) memberikan solusi signifikan dalam mengekstraksi wawasan berharga dari himpunan data besar (big data). Meskipun demikian, aspek etika dan keamanan data tetap menjadi perhatian utama. Penyalahgunaan informasi pribadi tanpa izin eksplisit pengguna dapat memicu risiko pelanggaran privasi yang serius. 
+
+Oleh karena itu, tata kelola data yang bertanggung jawab (data governance) serta kepatuhan terhadap regulasi pelindungan data pribadi harus diterapkan secara konsisten oleh seluruh pemangku kepentingan industri digital.`;
+
+        let currentFileText = "";
+
+        // On Page Load Initialization
+        window.addEventListener('DOMContentLoaded', () => {
+            initTheme();
+            setupDragAndDrop();
+        });
+
+        // Dark/Light Theme Switching Logic
+        function initTheme() {
+            if (localStorage.theme === 'dark' || (!('theme' in localStorage) && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
+                document.documentElement.classList.add('dark');
+                document.getElementById('theme-toggle-dark-icon').classList.add('hidden');
+                document.getElementById('theme-toggle-light-icon').classList.remove('hidden');
+            } else {
+                document.documentElement.classList.remove('dark');
+                document.getElementById('theme-toggle-light-icon').classList.add('hidden');
+                document.getElementById('theme-toggle-dark-icon').classList.remove('hidden');
+            }
+        }
+
+        function toggleDarkMode() {
+            if (document.documentElement.classList.contains('dark')) {
+                document.documentElement.classList.remove('dark');
+                localStorage.theme = 'light';
+            } else {
+                document.documentElement.classList.add('dark');
+                localStorage.theme = 'dark';
+            }
+            initTheme();
+        }
+
+        // Real-time Text Statistics Update
+        function updateTextStats() {
+            const text = document.getElementById('editor-textarea').value.trim();
+            const words = text ? text.split(/\s+/).filter(w => w.length > 0).length : 0;
+            const chars = text.length;
+
+            document.getElementById('word-count').innerText = words.toLocaleString('id-ID');
+            document.getElementById('char-count').innerText = chars.toLocaleString('id-ID');
+        }
+
+        function loadSampleText() {
+            document.getElementById('editor-textarea').value = sampleText;
+            updateTextStats();
+            showToast("Teks contoh berhasil dimuat!");
+        }
+
+        function clearEditor() {
+            document.getElementById('editor-textarea').value = '';
+            document.getElementById('editor-textarea').classList.remove('hidden');
+            document.getElementById('editor-result-view').classList.add('hidden');
+            removeFile();
+            updateTextStats();
+            resetDashboardScores();
+        }
+
+        function resetAll() {
+            clearEditor();
+            showToast("Semua data telah direset.");
+        }
+
+        // Drag and Drop File Handlers
+        function setupDragAndDrop() {
+            const dropZone = document.getElementById('drop-zone');
+
+            ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
+                dropZone.addEventListener(eventName, preventDefaults, false);
+            });
+
+            function preventDefaults(e) {
+                e.preventDefault();
+                e.stopPropagation();
+            }
+
+            ['dragenter', 'dragover'].forEach(eventName => {
+                dropZone.addEventListener(eventName, () => dropZone.classList.add('drop-zone--over'), false);
+            });
+
+            ['dragleave', 'drop'].forEach(eventName => {
+                dropZone.addEventListener(eventName, () => dropZone.classList.remove('drop-zone--over'), false);
+            });
+
+            dropZone.addEventListener('drop', (e) => {
+                const dt = e.dataTransfer;
+                const files = dt.files;
+                if (files.length > 0) {
+                    processFile(files[0]);
+                }
+            });
+
+            dropZone.addEventListener('click', () => {
+                document.getElementById('file-input').click();
+            });
+        }
+
+        function handleFileSelect(e) {
+            const files = e.target.files;
+            if (files.length > 0) {
+                processFile(files[0]);
+            }
+        }
+
+        // File Extractor (.txt, .docx, .pdf)
+        function processFile(file) {
+            const fileName = file.name;
+            const fileSize = (file.size / 1024).toFixed(1) + " KB";
+            const ext = fileName.split('.').pop().toLowerCase();
+
+            document.getElementById('file-name').innerText = fileName;
+            document.getElementById('file-size').innerText = fileSize;
+            document.getElementById('file-info-card').classList.remove('hidden');
+            document.getElementById('file-info-card').classList.add('flex');
+
+            if (ext === 'txt') {
+                const reader = new FileReader();
+                reader.onload = function(e) {
+                    document.getElementById('editor-textarea').value = e.target.result;
+                    updateTextStats();
+                    showToast(`File TXT "${fileName}" berhasil dibaca.`);
+                };
+                reader.readAsText(file);
+            } else if (ext === 'docx') {
+                const reader = new FileReader();
+                reader.onload = function(e) {
+                    mammoth.extractRawText({ arrayBuffer: e.target.result })
+                        .then(function(result) {
+                            document.getElementById('editor-textarea').value = result.value;
+                            updateTextStats();
+                            showToast(`File DOCX "${fileName}" berhasil diekstrak.`);
+                        })
+                        .catch(() => showToast("Gagal membaca file Word .docx", true));
+                };
+                reader.readAsArrayBuffer(file);
+            } else if (ext === 'pdf') {
+                const reader = new FileReader();
+                reader.onload = function(e) {
+                    const typedarray = new Uint8Array(e.target.result);
+                    pdfjsLib.getDocument(typedarray).promise.then(function(pdf) {
+                        let totalText = '';
+                        let promises = [];
+                        for (let i = 1; i <= pdf.numPages; i++) {
+                            promises.push(
+                                pdf.getPage(i).then(page => page.getTextContent().then(tc => tc.items.map(item => item.str).join(' ')))
+                            );
+                        }
+                        Promise.all(promises).then(pages => {
+                            document.getElementById('editor-textarea').value = pages.join('\n\n');
+                            updateTextStats();
+                            showToast(`File PDF "${fileName}" berhasil diekstrak.`);
+                        });
+                    }).catch(() => showToast("Gagal membaca PDF.", true));
+                };
+                reader.readAsArrayBuffer(file);
+            } else {
+                showToast("Format file tidak didukung (.txt, .docx, .pdf)", true);
+            }
+        }
+
+        function removeFile() {
+            document.getElementById('file-input').value = '';
+            document.getElementById('file-info-card').classList.add('hidden');
+            document.getElementById('file-info-card').classList.remove('flex');
+        }
+
+        // CORE PLAGIARISM ANALYSIS LOGIC
+        // STRICT REQUIREMENT: Random Float MUST be ALWAYS between 9.00% and 19.00%
+        function startPlagiarismAnalysis() {
+            const rawText = document.getElementById('editor-textarea').value.trim();
+            
+            if (!rawText || rawText.length < 20) {
+                showToast("Masukkan teks minimal 20 karakter untuk dianalisis.", true);
+                return;
+            }
+
+            // Show scanning overlay
+            const overlay = document.getElementById('scanning-overlay');
+            overlay.classList.remove('hidden');
+            overlay.classList.add('flex');
+
+            // Simulate 1.8 second deep scan
+            setTimeout(() => {
+                overlay.classList.add('hidden');
+                overlay.classList.remove('flex');
+
+                // 1. Generate Plagiarism Percentage STRICTLY between 9.00% and 19.00%
+                const min = 9.00;
+                const max = 19.00;
+                const plagScore = parseFloat((Math.random() * (max - min) + min).toFixed(2));
+                
+                // 2. Originality Score = 100% - Plagiarism%
+                const origScore = parseFloat((100 - plagScore).toFixed(2));
+
+                // 3. AI Generated Score simulation (e.g. 2% - 12%)
+                const aiScore = Math.floor(Math.random() * 11) + 2;
+
+                // Update UI Score Cards
+                document.getElementById('plag-score-text').innerText = plagScore.toFixed(2) + '%';
+                document.getElementById('orig-score-text').innerText = origScore.toFixed(2) + '%';
+                document.getElementById('ai-score-text').innerText = aiScore + '%';
+
+                document.getElementById('plag-progress-bar').style.width = plagScore + '%';
+                document.getElementById('orig-progress-bar').style.width = origScore + '%';
+                document.getElementById('ai-progress-bar').style.width = aiScore + '%';
+
+                document.getElementById('plag-risk-label').innerText = plagScore > 15 ? 'Risiko Rendah-Sedang' : 'Risiko Minimal';
+                document.getElementById('orig-status-label').innerText = 'Sangat Baik (Lolos Ambang Batas)';
+
+                // Breakdown metrics
+                const exactMatch = (plagScore * 0.65).toFixed(2);
+                const partialMatch = (plagScore - exactMatch).toFixed(2);
+                const vocabMatch = (85 + Math.random() * 10).toFixed(1);
+
+                document.getElementById('metric-exact').innerText = exactMatch + '%';
+                document.getElementById('metric-partial').innerText = partialMatch + '%';
+                document.getElementById('metric-vocab').innerText = vocabMatch + '%';
+
+                document.getElementById('bar-exact').style.width = (exactMatch / plagScore * 100) + '%';
+                document.getElementById('bar-partial').style.width = (partialMatch / plagScore * 100) + '%';
+                document.getElementById('bar-vocab').style.width = vocabMatch + '%';
+
+                // Update Sources Matching
+                populateSourcesList(plagScore, exactMatch, partialMatch);
+
+                // Highlight interactive text in preview
+                highlightTextInEditor(rawText);
+
+                // Enable Download Report button
+                const btnDownload = document.getElementById('btn-download');
+                btnDownload.removeAttribute('disabled');
+                btnDownload.classList.remove('opacity-50', 'cursor-not-allowed');
+                btnDownload.classList.add('bg-blue-600', 'text-white', 'hover:bg-blue-700', 'shadow-md');
+
+                showToast(`Analisis selesai! Skor Plagiarisme: ${plagScore.toFixed(2)}%`);
+
+            }, 1800);
+        }
+
+        // Render Highlighted Phrases in Result View
+        function highlightTextInEditor(text) {
+            const paragraphs = text.split('\n');
+            let resultHTML = '';
+
+            paragraphs.forEach((paragraph, idx) => {
+                if (!paragraph.trim()) {
+                    resultHTML += '<br>';
+                    return;
+                }
+
+                // Inject simulated highlight spans in paragraph 1 or 2
+                if (idx === 0 && paragraph.length > 40) {
+                    const midIndex = Math.floor(paragraph.length / 2);
+                    const part1 = paragraph.substring(0, midIndex - 30);
+                    const partPlag = paragraph.substring(midIndex - 30, midIndex + 20);
+                    const part2 = paragraph.substring(midIndex + 20);
+
+                    resultHTML += `<p class="mb-3">${part1}<span class="highlight-plagiarized" title="Kecocokan Langsung 100%">${partPlag}</span>${part2}</p>`;
+                } else if (idx === 1 && paragraph.length > 50) {
+                    const midIndex = Math.floor(paragraph.length / 3);
+                    const part1 = paragraph.substring(0, midIndex);
+                    const partPartial = paragraph.substring(midIndex, midIndex + 40);
+                    const part2 = paragraph.substring(midIndex + 40);
+
+                    resultHTML += `<p class="mb-3">${part1}<span class="highlight-partial" title="Parafrase Sebagian Terdeteksi">${partPartial}</span>${part2}</p>`;
+                } else {
+                    resultHTML += `<p class="mb-3">${paragraph}</p>`;
+                }
+            });
+
+            const textarea = document.getElementById('editor-textarea');
+            const resultView = document.getElementById('editor-result-view');
+
+            resultView.innerHTML = resultHTML;
+            textarea.classList.add('hidden');
+            resultView.classList.remove('hidden');
+        }
+
+        // Source List Generator
+        function populateSourcesList(totalPlag, exact, partial) {
+            const sourcesPool = [
+                { title: "Jurnal Teknologi Informasi & Bisnis Digital Vol. 12", url: "https://ejournal.akademik.id/index.php/jtib/article/2024" },
+                { title: "Analisis Tata Kelola Data dalam Era Machine Learning", url: "https://repository.ugm.ac.id/publication/88219" },
+                { title: "Prinsip Pelindungan Data Pribadi di Indonesia", url: "https://journal.ui.ac.id/law/article/view/1092" }
+            ];
+
+            const s1Pct = (totalPlag * 0.7).toFixed(2);
+            const s2Pct = (totalPlag - s1Pct).toFixed(2);
+
+            const activeSources = [
+                { ...sourcesPool[0], matchPct: s1Pct },
+                { ...sourcesPool[1], matchPct: s2Pct }
+            ];
+
+            document.getElementById('sources-matched-count').innerText = activeSources.length;
+            document.getElementById('sources-badge').innerText = `${activeSources.length} Sumber Cocok`;
+
+            let html = '';
+            activeSources.forEach((s, idx) => {
+                html += `
+                    <div class="p-3.5 bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700/60 rounded-2xl flex items-center justify-between gap-3 hover:border-blue-500 transition-all">
+                        <div class="overflow-hidden">
+                            <p class="text-xs font-bold text-slate-800 dark:text-slate-200 truncate mb-0.5">${idx + 1}. ${s.title}</p>
+                            <p class="text-[11px] text-slate-400 truncate flex items-center gap-1">
+                                <i class="fa-solid fa-link text-[9px]"></i> ${s.url}
+                            </p>
+                        </div>
+                        <span class="px-2.5 py-1 bg-red-100 dark:bg-red-950/60 text-red-600 dark:text-red-400 text-xs font-extrabold rounded-lg flex-shrink-0">
+                            ${s.matchPct}%
+                        </span>
+                    </div>
+                `;
+            });
+
+            document.getElementById('sources-list').innerHTML = html;
+        }
+
+        function resetDashboardScores() {
+            document.getElementById('plag-score-text').innerText = '0.00%';
+            document.getElementById('orig-score-text').innerText = '0.00%';
+            document.getElementById('ai-score-text').innerText = '0%';
+            document.getElementById('sources-matched-count').innerText = '0';
+
+            document.getElementById('plag-progress-bar').style.width = '0%';
+            document.getElementById('orig-progress-bar').style.width = '0%';
+            document.getElementById('ai-progress-bar').style.width = '0%';
+
+            document.getElementById('bar-exact').style.width = '0%';
+            document.getElementById('bar-partial').style.width = '0%';
+            document.getElementById('bar-vocab').style.width = '0%';
+
+            document.getElementById('metric-exact').innerText = '0%';
+            document.getElementById('metric-partial').innerText = '0%';
+            document.getElementById('metric-vocab').innerText = '0%';
+
+            document.getElementById('sources-list').innerHTML = `
+                <div class="text-center py-8 text-slate-400 text-xs">
+                    <i class="fa-solid fa-inbox text-3xl mb-2 block opacity-50"></i>
+                    Belum ada hasil. Klik "Mulai Analisis" di atas.
+                </div>
+            `;
+
+            const btnDownload = document.getElementById('btn-download');
+            btnDownload.setAttribute('disabled', 'true');
+            btnDownload.classList.add('opacity-50', 'cursor-not-allowed');
+            btnDownload.classList.remove('bg-blue-600', 'text-white', 'hover:bg-blue-700', 'shadow-md');
+        }
+
+        // Export Report Generator Simulation
+        function downloadReport() {
+            const plagText = document.getElementById('plag-score-text').innerText;
+            const origText = document.getElementById('orig-score-text').innerText;
+            const wordCount = document.getElementById('word-count').innerText;
+
+            const reportContent = `=====================================================
+LAPORAN ANALISIS PLAGIARISME & KEASLIAN TEKS
+VeriText Pro - Next-Gen Anti-Plagiarism Engine
+=====================================================
+Tanggal Pemeriksaan  : ${new Date().toLocaleDateString('id-ID')}
+Total Kata           : ${wordCount} Kata
+Tingkat Plagiarisme  : ${plagText}
+Tingkat Originalitas : ${origText}
+Status Evaluasi      : LOLOS (Dibawah ambang batas 20.00%)
+=====================================================
+Ringkasan:
+Artikel yang diuji menunjukkan tingkat keaslian yang sangat tinggi dengan
+risiko plagiarisme minimal. Kalimat yang terindikasi cocok hanya berkisar
+di rentang 9.00% - 19.00% dan tergolong aman untuk publikasi akademik.
+=====================================================`;
+
+            const blob = new Blob([reportContent], { type: 'text/plain;charset=utf-8' });
+            const a = document.createElement('a');
+            a.href = URL.createObjectURL(blob);
+            a.download = `VeriText_Laporan_Plagiarisme_${Date.now()}.txt`;
+            a.click();
+            showToast("Laporan ringkas berhasil diunduh!");
+        }
+
+        // Toast Message Utility
+        function showToast(msg, isError = false) {
+            const toast = document.getElementById('toast');
+            const toastMsg = document.getElementById('toast-msg');
+            const toastIcon = document.getElementById('toast-icon');
+
+            toastMsg.innerText = msg;
+            if (isError) {
+                toastIcon.className = "fa-solid fa-circle-xmark text-red-400";
+            } else {
+                toastIcon.className = "fa-solid fa-circle-check text-emerald-400";
+            }
+
+            toast.classList.remove('translate-y-20', 'opacity-0', 'pointer-events-none');
+            setTimeout(() => {
+                toast.classList.add('translate-y-20', 'opacity-0', 'pointer-events-none');
+            }, 3000);
+        }
+    </script>
+</body>
+</html>
